@@ -1,5 +1,5 @@
 @startuml Система поиска и рекомендаций ресторанов - Контекстная диаграмма
-!include lib/C4_Context.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
 
 title Система поиска и рекомендаций ресторанов - Контекстная диаграмма
 
