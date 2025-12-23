@@ -1,0 +1,93 @@
+@startuml Система поиска и рекомендаций ресторанов - Диаграмма контейнеров
+!includeurl lib/C4_Container.puml
+
+title Система поиска и рекомендаций ресторанов - Диаграмма контейнеров
+
+Person(посетитель, "Посетитель", "Ищет рестораны, просматривает карточки, оставляет отзывы")
+Person(владелец, "Владелец ресторана", "Управляет карточкой ресторана, анализирует статистику")
+Person(модератор, "Модератор", "Проверяет контент, обрабатывает жалобы")
+Person(рекламодатель, "Рекламодатель", "Создает рекламные кампании")
+
+System_Boundary(c1, "Система поиска и рекомендаций ресторанов") {
+    Container(web_app, "Веб-приложение", "React", "SPA приложение для всех типов пользователей")
+    Container(mobile_app, "Мобильное приложение", "React Native", "Мобильные приложения для iOS и Android")
+    
+    Container(api_gateway, "API Gateway", "Kotlin", "Маршрутизация запросов, аутентификация, rate limiting")
+    
+    Container(restaurant_api, "Restaurant API", "Kotlin", "Модуль управления ресторанами и карточками")
+    Container(search_api, "Search API", "Kotlin", "Модуль полнотекстового поиска ресторанов")
+    Container(recommendations_api, "Recommendations API", "Kotlin", "Модуль персонализированных рекомендаций")
+    Container(reviews_api, "Reviews API", "Kotlin", "Модуль управления отзывами и рейтингами")
+    Container(auth_api, "Auth API", "Kotlin", "Модуль аутентификации и авторизации")
+    Container(moderation_api, "Moderation API", "Kotlin", "Модуль модерации контента")
+    Container(advertising_api, "Advertising API", "Kotlin", "Модуль управления рекламными кампаниями")
+    Container(analytics_api, "Analytics API", "Kotlin", "Модуль аналитики для владельцев")
+    
+    Container(image_service, "Image Service", "Kotlin", "Модуль обработки и хранения изображений")
+    
+    Container(message_broker, "RabbitMQ", "", "Брокер сообщений для асинхронных задач")
+    
+    Container(cache, "In-Memory Cache", "Caffeine", "Кэширование часто запрашиваемых данных")
+    
+    Container(db_postgres, "PostgreSQL", "SQL Database", "Хранение данных: рестораны, отзывы, пользователи, реклама")
+}
+
+System_Ext(yandex_maps, "Yandex Maps API", "Картографический сервис")
+System_Ext(oauth_providers, "OAuth провайдеры", "Google, Facebook")
+
+посетитель --> web_app : "Просмотр ресторанов, поиск, отзывы"
+посетитель --> mobile_app : "Просмотр ресторанов, поиск, отзывы"
+владелец --> web_app : "Управление рестораном, аналитика"
+модератор --> web_app : "Модерация контента"
+рекламодатель --> web_app : "Управление рекламой"
+
+web_app --> api_gateway : "HTTPS"
+mobile_app --> api_gateway : "HTTPS"
+
+api_gateway --> auth_api : "Аутентификация и авторизация"
+api_gateway --> restaurant_api : "Управление ресторанами"
+api_gateway --> search_api : "Поиск ресторанов"
+api_gateway --> recommendations_api : "Получение рекомендаций"
+api_gateway --> reviews_api : "Управление отзывами"
+api_gateway --> moderation_api : "Модерация контента"
+api_gateway --> advertising_api : "Управление рекламой"
+api_gateway --> analytics_api : "Получение аналитики"
+api_gateway --> image_service : "Загрузка изображений"
+
+auth_api --> oauth_providers : "OAuth 2.0 аутентификация"
+auth_api --> cache : "Кэширование сессий и токенов"
+
+restaurant_api --> db_postgres : "Чтение/запись ресторанов"
+restaurant_api --> cache : "Кэширование списков ресторанов"
+restaurant_api --> message_broker : "Publish: RestaurantCreated/Updated"
+
+search_api --> db_postgres : "Полнотекстовый поиск"
+search_api --> cache : "Кэширование результатов поиска"
+search_api --> yandex_maps : "Геокодирование, поиск поблизости"
+
+recommendations_api --> db_postgres : "Получение данных для рекомендаций"
+recommendations_api --> cache : "Кэширование рекомендаций"
+recommendations_api --> message_broker : "Consume: UserAction для обновления рекомендаций"
+
+reviews_api --> db_postgres : "Чтение/запись отзывов и рейтингов"
+reviews_api --> cache : "Кэширование рейтингов"
+reviews_api --> message_broker : "Publish: ReviewCreated для пересчета рейтинга"
+
+moderation_api --> db_postgres : "Управление модерацией"
+moderation_api --> message_broker : "Publish: ContentFlagged"
+
+advertising_api --> db_postgres : "Управление рекламными кампаниями"
+advertising_api --> cache : "Кэширование активной рекламы"
+
+analytics_api --> db_postgres : "Агрегация аналитики"
+analytics_api --> message_broker : "Consume: события для аналитики"
+
+image_service --> db_postgres : "Метаданные изображений"
+image_service --> message_broker : "Publish: ImageUploaded для обработки"
+
+message_broker --> image_service : "Consume: обработка изображений"
+message_broker --> reviews_api : "Consume: пересчет рейтингов"
+message_broker --> recommendations_api : "Consume: обновление рекомендаций"
+
+@enduml
+

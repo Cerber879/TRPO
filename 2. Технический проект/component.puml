@@ -1,0 +1,52 @@
+@startuml
+!include lib/C4_Component.puml
+
+title Restaurant API - Диаграмма компонентов
+
+Container(restaurant_api_container, "Restaurant API", "Kotlin", "Модуль управления ресторанами и карточками")
+
+System_Boundary(restaurant_api_boundary, "Restaurant API") {
+    Component(rest_controller, "REST Controller", "Spring Web", "Обрабатывает HTTP запросы")
+    
+    Component(restaurant_service, "Restaurant Service", "Kotlin", "Основная бизнес-логика управления ресторанами")
+    Component(restaurant_repository, "Restaurant Repository", "Spring Data", "Управление данными ресторанов")
+    
+    Component(cache_manager, "Cache Manager", "Caffeine", "Управление кэшированием")
+    
+    Component(auth_adapter, "Auth Adapter", "Kotlin", "Адаптер для проверки прав доступа")
+    Component(image_adapter, "Image Adapter", "Kotlin", "Адаптер для работы с изображениями")
+    Component(maps_adapter, "Maps Adapter", "Kotlin", "Адаптер для работы с Yandex Maps")
+    
+    Component(event_dispatcher, "Event Dispatcher", "Kotlin", "Отправка событий в RabbitMQ")
+    
+    Component(validation_service, "Validation Service", "Kotlin", "Валидация данных ресторанов")
+}
+
+ContainerDb(db_postgres, "PostgreSQL", "SQL Database", "Хранение данных ресторанов")
+Container(cache, "In-Memory Cache", "Caffeine", "Кэширование списков ресторанов")
+Container(rabbitmq, "RabbitMQ", "", "Брокер сообщений")
+Container(auth_api, "Auth API", "Kotlin", "Модуль аутентификации")
+Container(image_service, "Image Service", "Kotlin", "Модуль обработки изображений")
+Container(yandex_maps, "Yandex Maps API", "", "Картографический сервис")
+
+Rel(rest_controller, restaurant_service, "Вызывает операции с ресторанами", "Kotlin calls")
+Rel(rest_controller, auth_adapter, "Проверка прав доступа", "Kotlin calls")
+
+Rel(restaurant_service, restaurant_repository, "Управление данными", "Kotlin calls")
+Rel(restaurant_service, cache_manager, "Кэширование данных", "Kotlin calls")
+Rel(restaurant_service, validation_service, "Валидация данных", "Kotlin calls")
+Rel(restaurant_service, image_adapter, "Работа с изображениями", "Kotlin calls")
+Rel(restaurant_service, maps_adapter, "Геокодирование адресов", "Kotlin calls")
+Rel(restaurant_service, event_dispatcher, "Отправка событий", "Kotlin calls")
+
+Rel(restaurant_repository, db_postgres, "Чтение/запись ресторанов", "SQL")
+Rel(cache_manager, cache, "Кэширование/получение данных", "Kotlin calls")
+
+Rel(auth_adapter, auth_api, "Проверка токенов и прав", "HTTP")
+Rel(image_adapter, image_service, "Загрузка изображений", "HTTP")
+Rel(maps_adapter, yandex_maps, "Геокодирование, карты", "HTTPS")
+
+Rel(event_dispatcher, rabbitmq, "Отправка событий", "AMQP")
+
+@enduml
+
