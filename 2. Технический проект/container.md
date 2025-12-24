@@ -18,19 +18,19 @@ flowchart LR
 
   %% System boundary
   subgraph SYS[Система поиска и рекомендаций ресторанов]
-    web[Web app\nReact]
-    mobile[Mobile app\nReact Native]
-    gw[API Gateway\nSpring Cloud Gateway]
+    web[Web app React]
+    mobile[Mobile app React Native]
+    gw[API Gateway Spring Cloud Gateway]
 
     rabbit[(RabbitMQ)]
     redis[(Redis)]
 
     %% Services grouped
     subgraph SVC[Микросервисы]
-      auth[Auth Service\nJWT/OAuth/Session]
+      auth[Auth Service JWT/OAuth/Session]
       rest[Restaurant Service]
-      search[Search Service\nPostgreSQL FTS]
-      reco[Recommendations Service\nHybrid]
+      search[Search Service PostgreSQL FTS]
+      reco[Recommendations Service Hybrid]
       reviews[Reviews Service]
       mod[Moderation Service]
       ads[Advertising Service]
@@ -48,7 +48,7 @@ flowchart LR
     adsdb[(Ads DB schema)]
     analdb[(Analytics DB schema)]
     imgdb[(Image DB schema)]
-    fs[(Image Storage\nFile System)]
+    fs[(Image Storage File System)]
   end
 
   %% External systems
