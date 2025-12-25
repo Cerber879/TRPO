@@ -1,99 +1,134 @@
-@startuml Система поиска и рекомендаций ресторанов - Диаграмма контейнеров
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+@startuml
+!include <C4/C4_Container>
 
-title Система поиска и рекомендаций ресторанов - Диаграмма контейнеров
+' Чтобы линии были "прямыми" и меньше хаоса
+skinparam linetype ortho
+LAYOUT_LEFT_RIGHT()
+LAYOUT_WITH_LEGEND()
+
+title Система поиска и рекомендаций ресторанов — Container (с отдельными БД по сервисам)
 
 Person(посетитель, "Посетитель", "Ищет рестораны, просматривает карточки, оставляет отзывы")
 Person(владелец, "Владелец ресторана", "Управляет карточкой ресторана, анализирует статистику")
 Person(модератор, "Модератор", "Проверяет контент, обрабатывает жалобы")
 Person(рекламодатель, "Рекламодатель", "Создает рекламные кампании")
 
-System_Boundary(c1, "Система поиска и рекомендаций ресторанов") {
-    together
-    {
-        Container(web_app, "Веб-приложение", "React, TypeScript", "SPA приложение для всех типов пользователей")
-        Container(mobile_app, "Мобильное приложение", "React Native, TypeScript", "Мобильные приложения для iOS и Android")
-        
-        Container(api_gateway, "API Gateway", "Kotlin, Spring Cloud Gateway", "Маршрутизация запросов, аутентификация, rate limiting")
-        
-        Container(restaurant_service, "Restaurant Service", "Kotlin, Spring Boot", "Микросервис управления ресторанами и карточками")
-        Container(search_service, "Search Service", "Kotlin, Spring Boot", "Микросервис полнотекстового поиска ресторанов")
-        Container(recommendations_service, "Recommendations Service", "Kotlin, Spring Boot", "Микросервис персонализированных рекомендаций")
-        Container(reviews_service, "Reviews Service", "Kotlin, Spring Boot", "Микросервис управления отзывами и рейтингами")
-        Container(auth_service, "Auth Service", "Kotlin, Spring Boot", "Микросервис аутентификации и авторизации")
-        Container(moderation_service, "Moderation Service", "Kotlin, Spring Boot", "Микросервис модерации контента")
-        Container(advertising_service, "Advertising Service", "Kotlin, Spring Boot", "Микросервис управления рекламными кампаниями")
-        Container(analytics_service, "Analytics Service", "Kotlin, Spring Boot", "Микросервис аналитики для владельцев")
-        Container(image_service, "Image Service", "Kotlin, Spring Boot", "Микросервис обработки и хранения изображений")
-        
-        Container(message_broker, "RabbitMQ", "Erlang/OTP", "Брокер сообщений для асинхронных задач и событий")
-        
-        Container(redis_cache, "Redis", "C", "Распределенное кэширование и хранение сессий")
-        
-        ContainerDb(db_postgres, "PostgreSQL", "SQL Database", "Единая база данных для всех сервисов")
-    }
-}
-
 System_Ext(yandex_maps, "Yandex Maps API", "Картографический сервис")
 System_Ext(oauth_providers, "OAuth провайдеры", "Google, Facebook")
 
-посетитель --> web_app : "Просмотр ресторанов, поиск, отзывы"
-посетитель --> mobile_app : "Просмотр ресторанов, поиск, отзывы"
-владелец --> web_app : "Управление рестораном, аналитика"
-модератор --> web_app : "Модерация контента"
-рекламодатель --> web_app : "Управление рекламой"
+System_Boundary(sys, "Система поиска и рекомендаций ресторанов") {
 
-web_app --> api_gateway : "HTTPS"
-mobile_app --> api_gateway : "HTTPS"
+    Container(web_app, "Веб-приложение", "React, TypeScript", "SPA для всех типов пользователей")
+    Container(mobile_app, "Мобильное приложение", "React Native, TypeScript", "iOS/Android")
+    Container(api_gateway, "API Gateway", "Kotlin, Spring Cloud Gateway", "Маршрутизация, auth, rate limiting")
 
-api_gateway --> auth_service : "HTTP: Аутентификация и авторизация"
-api_gateway --> restaurant_service : "HTTP: Управление ресторанами"
-api_gateway --> search_service : "HTTP: Поиск ресторанов"
-api_gateway --> recommendations_service : "HTTP: Получение рекомендаций"
-api_gateway --> reviews_service : "HTTP: Управление отзывами"
-api_gateway --> moderation_service : "HTTP: Модерация контента"
-api_gateway --> advertising_service : "HTTP: Управление рекламой"
-api_gateway --> analytics_service : "HTTP: Получение аналитики"
-api_gateway --> image_service : "HTTP: Загрузка изображений"
+    ' Общая инфраструктура (можно оставить внутри системы как часть решения)
+    Container(message_broker, "RabbitMQ", "RabbitMQ", "Очереди/события для асинхронных задач")
+    Container(redis_cache, "Redis", "Redis", "Кэш + хранение сессий/refresh")
 
-auth_service --> oauth_providers : "OAuth 2.0 аутентификация"
-auth_service --> redis_cache : "Кэширование сессий и токенов"
-auth_service --> db_postgres : "Чтение/запись пользователей"
+    ' ==== Микросервисы: каждый в своём прямоугольнике с БД/схемой ====
+    together {
 
-restaurant_service --> db_postgres : "Чтение/запись ресторанов"
-restaurant_service --> redis_cache : "Кэширование списков ресторанов"
-restaurant_service --> message_broker : "Publish: RestaurantCreated/Updated"
-restaurant_service --> image_service : "HTTP: Получение изображений ресторанов"
+        Container_Boundary(auth_b, "Auth Service") {
+            Container(auth_service, "Auth API", "Kotlin, Spring Boot", "JWT/OAuth/Session, RBAC")
+            ContainerDb(auth_db, "Auth DB schema", "PostgreSQL schema", "Пользователи, роли, refresh tokens")
+        }
 
-search_service --> db_postgres : "Полнотекстовый поиск"
-search_service --> redis_cache : "Кэширование результатов поиска"
-search_service --> yandex_maps : "HTTPS: Геокодирование, поиск поблизости"
-search_service --> restaurant_service : "HTTP: Получение данных ресторанов"
+        Container_Boundary(rest_b, "Restaurant Service") {
+            Container(restaurant_service, "Restaurant API", "Kotlin, Spring Boot", "Карточки ресторанов")
+            ContainerDb(rest_db, "Restaurant DB schema", "PostgreSQL schema", "Рестораны, адреса, атрибуты")
+        }
 
-recommendations_service --> db_postgres : "Получение данных для рекомендаций"
-recommendations_service --> redis_cache : "Кэширование рекомендаций"
-recommendations_service --> message_broker : "Consume: UserAction для обновления рекомендаций"
-recommendations_service --> restaurant_service : "HTTP: Получение данных ресторанов"
+        Container_Boundary(search_b, "Search Service") {
+            Container(search_service, "Search API", "Kotlin, Spring Boot", "Поиск (PostgreSQL FTS + фильтры)")
+            ContainerDb(search_db, "Search DB schema", "PostgreSQL schema", "FTS индексы/слои поиска (логически изолировано)")
+        }
 
-reviews_service --> db_postgres : "Чтение/запись отзывов и рейтингов"
-reviews_service --> redis_cache : "Кэширование рейтингов"
-reviews_service --> message_broker : "Publish: ReviewCreated для пересчета рейтинга"
-reviews_service --> restaurant_service : "HTTP: Обновление рейтинга ресторана"
+        Container_Boundary(reco_b, "Recommendations Service") {
+            Container(recommendations_service, "Reco API", "Kotlin, Spring Boot", "Персональные рекомендации")
+            ContainerDb(reco_db, "Reco DB schema", "PostgreSQL schema", "Профили/история/фичи")
+        }
 
-moderation_service --> db_postgres : "Управление модерацией контента"
-moderation_service --> message_broker : "Publish: ContentFlagged"
+        Container_Boundary(reviews_b, "Reviews Service") {
+            Container(reviews_service, "Reviews API", "Kotlin, Spring Boot", "Отзывы и рейтинги")
+            ContainerDb(reviews_db, "Reviews DB schema", "PostgreSQL schema", "Отзывы, оценки, агрегаты")
+        }
 
-advertising_service --> db_postgres : "Управление рекламными кампаниями"
-advertising_service --> redis_cache : "Кэширование активной рекламы"
-advertising_service --> restaurant_service : "HTTP: Получение данных ресторанов для рекламы"
+        Container_Boundary(mod_b, "Moderation Service") {
+            Container(moderation_service, "Moderation API", "Kotlin, Spring Boot", "Очередь модерации, решения approve/reject")
+            ContainerDb(mod_db, "Moderation DB schema", "PostgreSQL schema", "Очередь, решения, причины")
+        }
 
-analytics_service --> db_postgres : "Агрегация аналитики"
-analytics_service --> message_broker : "Consume: события для аналитики"
-analytics_service --> restaurant_service : "HTTP: Получение данных ресторанов"
-analytics_service --> reviews_service : "HTTP: Получение данных отзывов"
+        Container_Boundary(ads_b, "Advertising Service") {
+            Container(advertising_service, "Ads API", "Kotlin, Spring Boot", "Рекламные кампании")
+            ContainerDb(ads_db, "Ads DB schema", "PostgreSQL schema", "Кампании, таргетинг, бюджеты")
+        }
 
-image_service --> db_postgres : "Метаданные изображений"
-image_service --> message_broker : "Consume: обработка изображений"
+        Container_Boundary(analytics_b, "Analytics Service") {
+            Container(analytics_service, "Analytics API", "Kotlin, Spring Boot", "Аналитика владельцам")
+            ContainerDb(analytics_db, "Analytics DB schema", "PostgreSQL schema", "События/агрегации/витрины")
+        }
+
+        Container_Boundary(image_b, "Image Service") {
+            Container(image_service, "Image API", "Kotlin, Spring Boot", "Загрузка/обработка изображений")
+            ContainerDb(image_db, "Image DB schema", "PostgreSQL schema", "Метаданные изображений")
+            Container(image_storage, "Image Storage", "File System", "Файлы изображений и thumbnails")
+        }
+    }
+}
+
+
+' ===== Пользователи -> клиенты -> gateway =====
+Rel(посетитель, web_app, "Использует", "HTTPS")
+Rel(посетитель, mobile_app, "Использует", "HTTPS")
+Rel(владелец, web_app, "Использует", "HTTPS")
+Rel(модератор, web_app, "Использует", "HTTPS")
+Rel(рекламодатель, web_app, "Использует", "HTTPS")
+
+Rel(web_app, api_gateway, "API", "HTTPS")
+Rel(mobile_app, api_gateway, "API", "HTTPS")
+
+' ===== Gateway -> сервисы =====
+Rel(api_gateway, auth_service, "Auth/RBAC", "HTTP")
+Rel(api_gateway, restaurant_service, "Карточки ресторанов", "HTTP")
+Rel(api_gateway, search_service, "Поиск", "HTTP")
+Rel(api_gateway, recommendations_service, "Рекомендации", "HTTP")
+Rel(api_gateway, reviews_service, "Отзывы/оценки", "HTTP")
+Rel(api_gateway, moderation_service, "Модерация", "HTTP")
+Rel(api_gateway, advertising_service, "Реклама", "HTTP")
+Rel(api_gateway, analytics_service, "Аналитика", "HTTP")
+Rel(api_gateway, image_service, "Изображения", "HTTP")
+
+' ===== Сервис -> его БД (внутри прямоугольника, стрелки короткие и аккуратные) =====
+Rel(auth_service, auth_db, "read/write", "JDBC")
+Rel(restaurant_service, rest_db, "read/write", "JDBC")
+Rel(search_service, search_db, "read/write (FTS)", "JDBC")
+Rel(recommendations_service, reco_db, "read/write", "JDBC")
+Rel(reviews_service, reviews_db, "read/write", "JDBC")
+Rel(moderation_service, mod_db, "read/write", "JDBC")
+Rel(advertising_service, ads_db, "read/write", "JDBC")
+Rel(analytics_service, analytics_db, "read/write", "JDBC")
+Rel(image_service, image_db, "read/write", "JDBC")
+Rel(image_service, image_storage, "store/read files", "File IO")
+
+' ===== Внешние зависимости =====
+Rel(auth_service, oauth_providers, "OAuth 2.0", "HTTPS")
+Rel(search_service, yandex_maps, "Геокодирование/поиск поблизости", "HTTPS")
+
+' ===== Redis / RabbitMQ (оставил только ключевые связи, чтобы не было паутины) =====
+Rel(auth_service, redis_cache, "sessions/refresh", "TCP")
+Rel(search_service, redis_cache, "cache search results", "TCP")
+Rel(restaurant_service, redis_cache, "cache cards/lists", "TCP")
+Rel(recommendations_service, redis_cache, "cache recs", "TCP")
+Rel(reviews_service, redis_cache, "cache ratings", "TCP")
+Rel(advertising_service, redis_cache, "cache active ads", "TCP")
+
+Rel(restaurant_service, message_broker, "Publish: RestaurantChanged", "AMQP")
+Rel(reviews_service, message_broker, "Publish: ReviewCreated", "AMQP")
+Rel(moderation_service, message_broker, "Consume/Publish: ReviewModerated", "AMQP")
+Rel(recommendations_service, message_broker, "Consume: UserAction", "AMQP")
+Rel(analytics_service, message_broker, "Consume: domain events", "AMQP")
+Rel(image_service, message_broker, "Consume/Publish: image jobs", "AMQP")
+Rel(api_gateway, message_broker, "Publish: UserAction", "AMQP")
 
 @enduml
-
