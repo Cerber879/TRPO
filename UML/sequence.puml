@@ -1,0 +1,44 @@
+@startuml
+title Поиск ресторанов — Sequence Diagram
+
+actor "Посетитель" as User
+participant "Клиент\n(Web / Mobile)" as UI
+participant "API Gateway" as API
+participant "Auth Service" as Auth
+participant "Search Service" as Search
+participant "Redis\n(Cache)" as Redis
+participant "PostgreSQL" as DB
+participant "Restaurant Service" as RS
+participant "Yandex Maps API" as Maps
+
+User -> UI : Ввести поисковый запрос\n(название, кухня, местоположение)
+UI -> API : GET /restaurants/search\nquery, filters, location
+
+API -> Auth : Проверка JWT (опционально)
+Auth --> API : OK
+
+API -> Search : SearchRestaurants(query, filters, location)
+
+Search -> Redis : Проверить кэш результатов
+
+alt Результаты есть в кэше
+    Redis --> Search : Кэшированные результаты
+    Search --> API : Results
+    API --> UI : 200 OK + список ресторанов
+else Кэш отсутствует
+    Search -> DB : Полнотекстовый поиск\n(PostgreSQL FTS)
+    Search -> Maps : Геокодирование /\nпоиск поблизости
+    Maps --> Search : Координаты / ID ресторанов
+
+    Search -> RS : Получить детали ресторанов
+    RS --> Search : Данные ресторанов
+
+    Search -> DB : Применить фильтры\n(рейтинг, цена, кухня)
+    DB --> Search : Отфильтрованные результаты
+
+    Search -> Redis : Кэшировать результаты (TTL)
+    Search --> API : Results
+    API --> UI : 200 OK + список ресторанов
+end
+
+@enduml
